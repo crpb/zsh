@@ -9,7 +9,7 @@ local tmp needupdate=0
 local -a todos
 
 zstyle -s ':ztodo:*' cache-file cachefile ||
-  cachefile="~/.ztodolist"
+  cachefile="${ZDOTDIR:-$HOME}"/.ztodolist
 zstyle -s ':ztodo:*' short-format short_format ||
   short_format="You have %n thing%1(n..s) to do here."
 zstyle -s ':ztodo:*' list-format list_format ||
