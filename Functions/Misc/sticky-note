@@ -51,7 +51,7 @@
 emulate -LR zsh
 setopt nobanghist extendedhistory histignoredups
 
-local STICKYFILE=${STICKYFILE:-$HOME/.zsticky}
+local STICKYFILE=${STICKYFILE:-"${ZDOTDIR:-$HOME}"/.zsticky}
 local STICKYSIZE=${STICKYSIZE:-1000}
 local sticky stickyfile stickysize
 
