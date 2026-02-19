@@ -370,6 +370,7 @@ route_show_cmds=("(" $subcmd_rtselector "|" ")" "$reply[@]" "#")
 
 local -a route_get_cmds
 _regex_words route-get-commands "route get commands" \
+  'fibmatch:return fib instead of dst:$subcmd_ipaddr' \
   'to:route destination:$subcmd_ipaddr' \
   'f*rom:route source:$subcmd_ipaddr' \
   'tos:select type of service:$subcmd_tos' \
