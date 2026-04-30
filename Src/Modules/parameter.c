@@ -49,15 +49,14 @@ paramtypestr(Param pm)
 	if (pm->node.flags & PM_AUTOLOAD)
 	    return dupstring("undefined");
 
-	/* For simplicity we treat PM_NAMEREF as PM_TYPE(PM_SCALAR) */
-	switch (PM_TYPE(f)|(f & PM_NAMEREF)) {
+	switch (PM_TYPE(f)) {
 	case PM_SCALAR:  val = "scalar"; break;
+	case PM_NAMEREF: val = "nameref"; break;
 	case PM_ARRAY:   val = "array"; break;
 	case PM_INTEGER: val = "integer"; break;
 	case PM_EFLOAT:
 	case PM_FFLOAT:  val = "float"; break;
 	case PM_HASHED:  val = "association"; break;
-	case PM_NAMEREF: val = "nameref"; break;
 	}
 	DPUTS(!val, "BUG: type not handled in parameter");
 	val = dupstring(val);
@@ -151,17 +150,12 @@ scanpmparameters(UNUSED(HashTable ht), ScanFunc func, int flags)
 static void
 setpmcommand(Param pm, char *value)
 {
-    if (isset(RESTRICTED)) {
-	zwarn("restricted: %s", value);
-	zsfree(value);
-    } else {
-	Cmdnam cn = zshcalloc(sizeof(*cn));
+    Cmdnam cn = zshcalloc(sizeof(*cn));
 
-	cn->node.flags = HASHED;
-	cn->u.cmd = value;
+    cn->node.flags = HASHED;
+    cn->u.cmd = value;
 
-	cmdnamtab->addnode(cmdnamtab, ztrdup(pm->node.nam), &cn->node);
-    }
+    cmdnamtab->addnode(cmdnamtab, ztrdup(pm->node.nam), &cn->node);
 }
 
 /**/

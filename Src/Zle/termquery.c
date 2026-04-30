@@ -450,9 +450,9 @@ handle_color(int bg, int red, int green, int blue)
 	    memo_term_color |= TXT_ATTR_BG_24BIT | (zattr) ((((red << 8)
 		    + green) << 8) + blue) << TXT_ATTR_BG_COL_SHIFT;
 	    /* scale by Rec.709 coefficients for lightness */
-	    setsparam(MODEVAR, ztrdup(
+	    assignsparam(MODEVAR, ztrdup(
 		    0.2126f * red + 0.7152f * green + 0.0722f * blue <= 127 ?
-		    "dark" : "light"));
+		    "dark" : "light"), 0);
 	    break;
         case 2:  /* cursor color */
 	    memo_cursor = (red << 24) | (green << 16) | (blue << 8);
@@ -461,7 +461,7 @@ handle_color(int bg, int red, int green, int blue)
 
     colour = zalloc(8);
     sprintf(colour, "#%02x%02x%02x", red, green, blue);
-    setsparam(COLORVAR[bg], colour);
+    assignsparam(COLORVAR[bg], colour, 0);
 }
 
 /* roughly corresponding feature names */
@@ -484,18 +484,18 @@ handle_query(int sequence, int *numbers, int len, char *capture, int clen,
 	case 2: /* kitty keyboard */
 	    feat = zshcalloc(2 * sizeof(char *));
 	    *feat = ztrdup(features[3]);
-	    assignaparam(EXTVAR, feat, ASSPM_WARN|ASSPM_AUGMENT);
+	    assignaparam(EXTVAR, feat, ASSPM_AUGMENT);
 	    break;
 	case 3: /* truecolor */
 	    feat = zshcalloc(2 * sizeof(char *));
 	    *feat = ztrdup(features[4]);
-	    assignaparam(EXTVAR, feat, ASSPM_WARN|ASSPM_AUGMENT);
+	    assignaparam(EXTVAR, feat, ASSPM_AUGMENT);
 	    break;
 	case 4: /* id */
-	    setsparam(IDVAR, ztrduppfx(capture, clen));
+	    assignsparam(IDVAR, ztrduppfx(capture, clen), 0);
 	    break;
 	case 5: /* version */
-	    setsparam(VERVAR, ztrduppfx(capture, clen));
+	    assignsparam(VERVAR, ztrduppfx(capture, clen), 0);
 	    break;
     }
 }
@@ -765,20 +765,29 @@ mark_output(int start)
 		(start ? sizeof(START) : sizeof(END)) - 1);
 }
 
+static void
+write_urlencoded(const char *path_components)
+{
+    size_t enc_len;
+    const char *enc = url_encode(path_components, &enc_len);
+    write_loop(SHTTY, enc, enc_len);
+}
+
 /**/
 void
 notify_pwd(void)
 {
-    char *url;
-    size_t ulen;
+    const char *hostnam;
 
     if (!extension_enabled("integration", "pwd", 11, 1))
 	return;
 
-    url = url_encode(pwd, &ulen);
-    /* only "localhost" seems to be much use here as the host */
-    write_loop(SHTTY, "\033]7;file://localhost", 20);
-    write_loop(SHTTY, url, ulen);
+    if ((hostnam = getsparam("HOST")) == NULL || strchr(hostnam, '/') != NULL)
+	return;
+
+    write_loop(SHTTY, "\033]7;file://", 11);
+    write_urlencoded(hostnam);
+    write_urlencoded(pwd);
     write_loop(SHTTY, "\033\\", 2);
 }
 

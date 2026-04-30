@@ -52,6 +52,11 @@ or, if your $VISUAL and $EDITOR environment variables vary,
 to your .zshrc file.  These snippets are compatible with previous
 versions of the shell.
 
+Restricted mode has been removed.  This was associated with the option
+RESTRICTED (-r).  This was an outdated way to restrict what users may do and
+was very difficult to apply safely.  Furthermore, modern systems have better,
+safer and more reliable ways to confine user actions.
+
 The ERR_EXIT and ERR_RETURN options were refined to be more self-
 consistent and better aligned with the POSIX-2017 specification of
 `set -e`:
@@ -127,6 +132,22 @@ to be more similar to other commands in that module.
 Tied parameters created with the zsh/db/gdbm module may not be re-tied
 as locals in nested function scope.  This prevents database corruption
 when a function scope ends.
+
+The zsh/datetime module's strftime builtin now exports a set-but-empty
+TZ parameter (as in `TZ= strftime ...`) for use by the underlying
+library.  On most systems, this is equivalent to setting TZ to UTC.
+
+The typeset builtin now prints the floating-point values NaN, Inf, and
+-Inf using that capitalisation, which matches the capitalisation used by
+arithmetic expansion.  (Previously they were printed in lowercase.)
+
+The zsh/zutil module's zparseopts builtin now always uses the last
+option name as given when storing it in an array.  (Previously, options
+mapped with -M would sometimes be stored using the first name given.)
+
+Also, as a consequence of the zparseopts builtin now using standard
+argument parsing for its own options, long-option specs must be guarded
+using -- or similar.
 
 Incompatibilities between 5.8.1 and 5.9
 ---------------------------------------

@@ -296,18 +296,18 @@ static initparam special_params[] ={
 #define IPDEF1(A,B,C) {{NULL,A,PM_INTEGER|PM_SPECIAL|C},BR(NULL),GSU(B),10,0,NULL,NULL,NULL,0}
 IPDEF1("#", pound_gsu, PM_READONLY_SPECIAL),
 IPDEF1("ERRNO", errno_gsu, PM_UNSET),
-IPDEF1("GID", gid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
-IPDEF1("EGID", egid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
-IPDEF1("HISTSIZE", histsize_gsu, PM_RESTRICTED),
+IPDEF1("GID", gid_gsu, PM_DONTIMPORT),
+IPDEF1("EGID", egid_gsu, PM_DONTIMPORT),
+IPDEF1("HISTSIZE", histsize_gsu, 0),
 IPDEF1("RANDOM", random_gsu, 0),
-IPDEF1("SAVEHIST", savehist_gsu, PM_RESTRICTED),
+IPDEF1("SAVEHIST", savehist_gsu, 0),
 IPDEF1("SECONDS", intseconds_gsu, 0),
-IPDEF1("UID", uid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
-IPDEF1("EUID", euid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
+IPDEF1("UID", uid_gsu, PM_DONTIMPORT),
+IPDEF1("EUID", euid_gsu, PM_DONTIMPORT),
 IPDEF1("TTYIDLE", ttyidle_gsu, PM_READONLY_SPECIAL),
 
 #define IPDEF2(A,B,C) {{NULL,A,PM_SCALAR|PM_SPECIAL|C},BR(NULL),GSU(B),0,0,NULL,NULL,NULL,0}
-IPDEF2("USERNAME", username_gsu, PM_DONTIMPORT|PM_RESTRICTED),
+IPDEF2("USERNAME", username_gsu, PM_DONTIMPORT),
 IPDEF2("-", dash_gsu, PM_READONLY_SPECIAL),
 IPDEF2("histchars", histchars_gsu, PM_DONTIMPORT),
 IPDEF2("HOME", home_gsu, PM_UNSET),
@@ -315,7 +315,7 @@ IPDEF2("TERM", term_gsu, PM_UNSET),
 IPDEF2("TERMINFO", terminfo_gsu, PM_UNSET),
 IPDEF2("TERMINFO_DIRS", terminfodirs_gsu, PM_UNSET),
 IPDEF2("WORDCHARS", wordchars_gsu, 0),
-IPDEF2("IFS", ifs_gsu, PM_DONTIMPORT | PM_RESTRICTED),
+IPDEF2("IFS", ifs_gsu, PM_DONTIMPORT),
 IPDEF2("_", underscore_gsu, PM_DONTIMPORT),
 IPDEF2("KEYBOARD_HACK", keyboard_hack_gsu, PM_DONTIMPORT),
 IPDEF2("0", argzero_gsu, 0),
@@ -396,12 +396,12 @@ IPDEF8("CDPATH", &cdpath, "cdpath", PM_TIED),
 IPDEF8("FIGNORE", &fignore, "fignore", PM_TIED),
 IPDEF8("FPATH", &fpath, "fpath", PM_TIED),
 IPDEF8("MAILPATH", &mailpath, "mailpath", PM_TIED),
-IPDEF8("PATH", &path, "path", PM_RESTRICTED|PM_TIED),
+IPDEF8("PATH", &path, "path", PM_TIED),
 IPDEF8("PSVAR", &psvar, "psvar", PM_TIED),
 IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, "zsh_eval_context", PM_READONLY_SPECIAL|PM_TIED),
 
 /* MODULE_PATH is not imported for security reasons */
-IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED|PM_TIED),
+IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_TIED),
 
 #define IPDEF10(A,B) {{NULL,A,PM_ARRAY|PM_SPECIAL},BR(NULL),GSU(B),10,0,NULL,NULL,NULL,0}
 
@@ -430,8 +430,8 @@ IPDEF9("psvar", &psvar, "PSVAR", PM_TIED),
 
 IPDEF9("zsh_eval_context", &zsh_eval_context, "ZSH_EVAL_CONTEXT", PM_TIED|PM_READONLY_SPECIAL),
 
-IPDEF9("module_path", &module_path, "MODULE_PATH", PM_TIED|PM_RESTRICTED),
-IPDEF9("path", &path, "PATH", PM_TIED|PM_RESTRICTED),
+IPDEF9("module_path", &module_path, "MODULE_PATH", PM_TIED),
+IPDEF9("path", &path, "PATH", PM_TIED),
 
 /* These are known to zsh alone. */
 
@@ -449,12 +449,12 @@ IPDEF8("CDPATH", &cdpath, NULL, 0),
 IPDEF8("FIGNORE", &fignore, NULL, 0),
 IPDEF8("FPATH", &fpath, NULL, 0),
 IPDEF8("MAILPATH", &mailpath, NULL, 0),
-IPDEF8("PATH", &path, NULL, PM_RESTRICTED),
+IPDEF8("PATH", &path, NULL, 0),
 IPDEF8("PSVAR", &psvar, NULL, 0),
 IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, NULL, PM_READONLY_SPECIAL),
 
 /* MODULE_PATH is not imported for security reasons */
-IPDEF8("MODULE_PATH", &module_path, NULL, PM_DONTIMPORT|PM_RESTRICTED),
+IPDEF8("MODULE_PATH", &module_path, NULL, PM_DONTIMPORT),
 
 {{NULL,NULL,0},BR(NULL),NULL_GSU,0,0,NULL,NULL,NULL,0},
 };
@@ -484,6 +484,24 @@ static initparam argvparam_pm = IPDEF9("", &pparams, NULL, \
 			  (zsfree((PM)->u.str), (PM)->u.str = (S)))
 
 static Param argvparam;
+
+/*
+ * Lists of references to nested variables ("Param" instances) indexed
+ * by scope. Whenever the "base" scope of a named reference is set to
+ * refer to a variable more deeply nested than the reference itself
+ * ("base > level"), the "base" scope has to be updated once the
+ * "base" scope ends. The "scoperefs" lists keep track of these
+ * references. Since "Param" instances get reused when variables with
+ * the same name are redefined in the same scope, listed "Param"
+ * instances may no longer be references when the scope ends or may
+ * refer to a different "base" scope. A given "Param" instance may
+ * also be included in multiple lists at the same time or multiple
+ * times in the same list. Non of that is harmful as long as only
+ * instances that are still references referring to the ending scope
+ * are updated when the scope ends.
+ */
+static LinkList *scoperefs = NULL;
+static int scoperefs_num = 0;
 
 /* "parameter table" - hash table containing the parameters
  *
@@ -522,7 +540,7 @@ newparamtable(int size, char const *name)
 }
 
 /**/
-static HashNode
+static Param
 loadparamnode(HashTable ht, Param pm, const char *nam)
 {
     if (pm && (pm->node.flags & PM_AUTOLOAD) && pm->u.str) {
@@ -544,17 +562,17 @@ loadparamnode(HashTable ht, Param pm, const char *nam)
 		 nam);
 	}
     }
-    return (HashNode)pm;
+    return pm;
 }
 
 /**/
 static HashNode
 getparamnode(HashTable ht, const char *nam)
 {
-    HashNode hn = loadparamnode(ht, (Param)gethashnode2(ht, nam), nam);
-    if (hn && ht == realparamtab && !(hn->flags & PM_UNSET))
-	hn = resolve_nameref((Param)hn, NULL);
-    return hn;
+    Param pm = loadparamnode(ht, (Param)gethashnode2(ht, nam), nam);
+    if (pm && ht == realparamtab && !(pm->node.flags & PM_UNSET))
+	pm = resolve_nameref(pm);
+    return (HashNode)pm;
 }
 
 /* Copy a parameter hash table */
@@ -977,6 +995,7 @@ assigngetset(Param pm)
 {
     switch (PM_TYPE(pm->node.flags)) {
     case PM_SCALAR:
+    case PM_NAMEREF:
 	pm->gsu.s = &stdscalar_gsu;
 	break;
     case PM_INTEGER:
@@ -1043,22 +1062,30 @@ createparam(char *name, int flags)
 	if (oldpm && !(flags & PM_NAMEREF) &&
 	    (oldpm->level == locallevel ?
 	     !(oldpm->node.flags & PM_RO_BY_DESIGN) : !(flags & PM_LOCAL)) &&
-	    (oldpm->node.flags & PM_NAMEREF)) {
-	    Param lastpm;
-	    struct asgment stop;
-	    stop.flags = PM_NAMEREF;
-	    stop.name = "";
-	    stop.value.scalar = NULL;
-	    lastpm = (Param)resolve_nameref(oldpm, &stop);
+	    (oldpm->node.flags & PM_NAMEREF) &&
+	    (!(oldpm->node.flags & PM_UNSET) ||
+	     (oldpm->node.flags & PM_DECLARED))) {
+	    /**
+	     * Here we only have to deal with namerefs that refer to
+	     * not-yet-defined or unset variable. All other namerefs
+	     * have already been taken care of by the resolve_nameref
+	     * in typeset_single. It's unclear why these can't be
+	     * handled there too.
+	     **/
+	    Param lastpm = resolve_nameref_rec(oldpm, NULL, 1);
 	    if (lastpm) {
-		if (lastpm->node.flags & PM_NAMEREF) {
+		if (lastpm->node.flags & PM_NAMEREF &&
+		    (!(lastpm->node.flags & PM_UNSET) ||
+		     (lastpm->node.flags & PM_DECLARED))) {
 		    char *refname = GETREFNAME(lastpm);
 		    if (refname && *refname) {
+			/* nameref pointing to a not-yet-defined variable */
 			name = refname;
 			oldpm = NULL;
 		    } else {
+			/* nameref pointing to an uninitialized nameref */
 			if (!(lastpm->node.flags & PM_READONLY)) {
-			    if (flags) {
+			    if (flags & ~PM_LOCAL) {
 				/* Only plain scalar assignment allowed */
 				zerr("%s: can't change type of named reference",
 				     name);	/* Differs from ksh93u+ */
@@ -1081,10 +1108,6 @@ createparam(char *name, int flags)
 	if (oldpm && (oldpm->level == locallevel || !(flags & PM_LOCAL))) {
 	    if (isset(POSIXBUILTINS) && (oldpm->node.flags & PM_READONLY)) {
 		zerr("read-only variable: %s", name);
-		return NULL;
-	    }
-	    if ((oldpm->node.flags & PM_RESTRICTED) && isset(RESTRICTED)) {
-		zerr("%s: restricted", name);
 		return NULL;
 	    }
 	    if (!(oldpm->node.flags & PM_UNSET) ||
@@ -1228,6 +1251,7 @@ copyparam(Param tpm, Param pm, int fakecopy)
     }
     switch (PM_TYPE(pm->node.flags)) {
     case PM_SCALAR:
+    case PM_NAMEREF:
 	tpm->u.str = ztrdup(pm->gsu.s->getfn(pm));
 	break;
     case PM_INTEGER:
@@ -2231,13 +2255,8 @@ fetchvalue(Value v, char **pptr, int bracks, int scanflags)
 		    *ss = 0;
 		}
 		Param p1 = (Param)gethashnode2(paramtab, ref);
-		if (p1) {
-		    if (pm->node.flags & PM_UPPER)
-			pm = upscope_upper(p1, pm->level - 1);
-		    else
-			pm = upscope(p1, pm->base);
-		    pm = (Param)loadparamnode(paramtab, pm, ref);
-		}
+		if (p1)
+		    pm = loadparamnode(paramtab, upscope(p1, pm), ref);
 		if (!(p1 && pm) ||
 		    ((pm->node.flags & PM_UNSET) &&
 		     !(pm->node.flags & PM_DECLARED)))
@@ -2358,6 +2377,7 @@ getstrvalue(Value v)
 		      v->pm->base, v->pm->node.flags, NULL);
 	break;
     case PM_SCALAR:
+    case PM_NAMEREF:
 	s = v->pm->gsu.s->getfn(v->pm);
 	break;
     default:
@@ -2678,11 +2698,6 @@ assignstrvalue(Value v, char *val, int flags)
 	zsfree(val);
 	return;
     }
-    if ((v->pm->node.flags & PM_RESTRICTED) && isset(RESTRICTED)) {
-	zerr("%s: restricted", v->pm->node.nam);
-	zsfree(val);
-	return;
-    }
     if ((v->pm->node.flags & PM_HASHED) &&
 	(v->scanflags & (SCANPM_MATCHMANY|SCANPM_ARRONLY))) {
 	zerr("%s: attempt to set slice of associative array", v->pm->node.nam);
@@ -2697,6 +2712,7 @@ assignstrvalue(Value v, char *val, int flags)
     v->pm->node.flags &= ~PM_UNSET;
     switch (PM_TYPE(v->pm->node.flags)) {
     case PM_SCALAR:
+    case PM_NAMEREF:
 	if (v->start == 0 && v->end == -1) {
 	    v->pm->gsu.s->setfn(v->pm, val);
 	    if ((v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) &&
@@ -2736,6 +2752,8 @@ assignstrvalue(Value v, char *val, int flags)
 #endif
 		}
 	    }
+	    if (v->end < v->start)
+		v->end = v->start;
 	    else if (v->end > zlen)
 		v->end = zlen;
 
@@ -2847,12 +2865,9 @@ setnumvalue(Value v, mnumber val)
 	zerr("read-only variable: %s", v->pm->node.nam);
 	return;
     }
-    if ((v->pm->node.flags & PM_RESTRICTED) && isset(RESTRICTED)) {
-	zerr("%s: restricted", v->pm->node.nam);
-	return;
-    }
     switch (PM_TYPE(v->pm->node.flags)) {
     case PM_SCALAR:
+    case PM_NAMEREF:
     case PM_ARRAY:
 	if ((val.type & MN_INTEGER) || outputradix) {
 	    if (!(val.type & MN_INTEGER))
@@ -2885,11 +2900,6 @@ setarrvalue(Value v, char **val)
 	return;
     if (v->pm->node.flags & PM_READONLY) {
 	zerr("read-only variable: %s", v->pm->node.nam);
-	freearray(val);
-	return;
-    }
-    if ((v->pm->node.flags & PM_RESTRICTED) && isset(RESTRICTED)) {
-	zerr("%s: restricted", v->pm->node.nam);
 	freearray(val);
 	return;
     }
@@ -3263,6 +3273,7 @@ assignsparam(char *s, char *val, int flags)
 	if (v->start == 0 && v->end == -1) {
 	    switch (PM_TYPE(v->pm->node.flags)) {
 	    case PM_SCALAR:
+	    case PM_NAMEREF:
 		v->start = INT_MAX;  /* just append to scalar value */
 		break;
 	    case PM_INTEGER:
@@ -3299,6 +3310,7 @@ assignsparam(char *s, char *val, int flags)
 	} else {
 	    switch (PM_TYPE(v->pm->node.flags)) {
 	    case PM_SCALAR:
+	    case PM_NAMEREF:
     		if (v->end > 0)
 		    v->start = v->end;
 		else
@@ -3330,11 +3342,7 @@ assignsparam(char *s, char *val, int flags)
 	}
     }
 
-    if (v->pm->node.flags & PM_NAMEREF)
-	v->pm->node.flags |= PM_NEWREF;
     assignstrvalue(v, val, flags);
-    if (v->pm->node.flags & PM_NAMEREF)
-	v->pm->node.flags &= ~PM_NEWREF;
     unqueue_signals();
     return v->pm;
 }
@@ -3386,6 +3394,10 @@ assignaparam(char *s, char **val, int flags)
 	if (!(v = fetchvalue(&vbuf, &s, 1, SCANPM_ASSIGNING))) {
 	    createparam(t, PM_ARRAY);
 	    created = 1;
+	} else if (v->pm->node.flags & PM_NAMEREF) {
+	    zwarn("%s: can't change type of a named reference", t);
+	    unqueue_signals();
+	    return NULL;
 	} else if (!(PM_TYPE(v->pm->node.flags) & (PM_ARRAY|PM_HASHED)) &&
 		   !(v->valflags & VALFLAG_REFSLICE) &&
 		   !(v->pm->node.flags & (PM_SPECIAL|PM_TIED))) {
@@ -3839,10 +3851,6 @@ unsetparam_pm(Param pm, int altflag, int exp)
 	     pm->node.nam);
 	return 1;
     }
-    if ((pm->node.flags & PM_RESTRICTED) && isset(RESTRICTED)) {
-	zerr("%s: restricted", pm->node.nam);
-	return 1;
-    }
 
     if (pm->ename && !altflag)
 	altremove = ztrdup(pm->ename);
@@ -3950,6 +3958,7 @@ stdunsetfn(Param pm, UNUSED(int exp))
 {
     switch (PM_TYPE(pm->node.flags)) {
 	case PM_SCALAR:
+	case PM_NAMEREF:
 	    if (pm->gsu.s->setfn)
 		pm->gsu.s->setfn(pm, NULL);
 	    break;
@@ -5723,7 +5732,12 @@ convfloat(double dval, int digits, int flags, FILE *fout)
     setlocale(LC_NUMERIC, "POSIX");
 #endif
     if (fout) {
-	fprintf(fout, fmt, digits, dval);
+	if (isinf(dval))
+	    fprintf(fout, (dval < 0.0) ? "-Inf" : "Inf");
+	else if (isnan(dval))
+	    fprintf(fout, "NaN");
+	else
+	    fprintf(fout, fmt, digits, dval);
 	ret = NULL;
     } else {
 	VARARR(char, buf, 512 + digits);
@@ -5844,6 +5858,7 @@ static int lc_update_needed;
 mod_export void
 endparamscope(void)
 {
+    LinkList refs = locallevel < scoperefs_num ? scoperefs[locallevel] : NULL;
     queue_signals();
     locallevel--;
     /* This pops anything from a higher locallevel */
@@ -5871,6 +5886,14 @@ endparamscope(void)
 	clear_mbstate();    /* LC_CTYPE may have changed */
     }
 #endif /* USE_LOCALE */
+    /* Reset scope of namerefs that refer to dead variables */
+    for (Param pm; refs && (pm = (Param)getlinknode(refs));) {
+	if ((pm->node.flags & PM_NAMEREF) && !(pm->node.flags & PM_UNSET) &&
+	    !(pm->node.flags & PM_UPPER) && pm->base > locallevel) {
+	    pm->base = 0;
+	    setscope(pm);
+	}
+    }
     unqueue_signals();
 }
 
@@ -5879,9 +5902,7 @@ static void
 scanendscope(HashNode hn, UNUSED(int flags))
 {
     Param pm = (Param)hn;
-    Param hidden = NULL;
     if (pm->level > locallevel) {
-	hidden = pm->old;
 	if ((pm->node.flags & (PM_SPECIAL|PM_REMOVABLE)) == PM_SPECIAL) {
 	    /*
 	     * Removable specials are normal in that they can be removed
@@ -5922,6 +5943,7 @@ scanendscope(HashNode hn, UNUSED(int flags))
 	    if (!(tpm->node.flags & (PM_NORESTORE|PM_READONLY)))
 		switch (PM_TYPE(pm->node.flags)) {
 		case PM_SCALAR:
+		case PM_NAMEREF:
 		    pm->gsu.s->setfn(pm, tpm->u.str);
 		    break;
 		case PM_INTEGER:
@@ -5944,14 +5966,6 @@ scanendscope(HashNode hn, UNUSED(int flags))
 		export_param(pm);
 	} else
 	    unsetparam_pm(pm, 0, 0);
-	pm = NULL;
-    }
-    if (hidden)
-	pm = hidden;
-    if (pm && (pm->node.flags & PM_NAMEREF) &&
-	       pm->base >= pm->level && pm->base >= locallevel) {
-	/* Should never get here for a -u reference */
-	pm->base = locallevel;
     }
 }
 
@@ -6031,6 +6045,7 @@ printparamvalue(Param p, int printflags)
      * on the type of the parameter       */
     switch (PM_TYPE(p->node.flags)) {
     case PM_SCALAR:
+    case PM_NAMEREF:
 	/* string: simple output */
 	if (p->gsu.s->getfn && (t = p->gsu.s->getfn(p)))
 	    quotedzputs(t, stdout);
@@ -6308,78 +6323,40 @@ printparamnode(HashNode hn, int printflags)
 }
 
 /**/
-mod_export HashNode
-resolve_nameref(Param pm, const Asgment stop)
+mod_export Param
+resolve_nameref(Param pm)
 {
-    HashNode hn = (HashNode)pm;
-    const char *seek = stop ? stop->value.scalar : NULL;
+    return resolve_nameref_rec(pm, NULL, 0);
+}
 
-    if (pm && (pm->node.flags & PM_NAMEREF)) {
-	char *refname = GETREFNAME(pm);
-	if (pm->node.flags & PM_TAGGED) {
-	    zerr("%s: invalid self reference", pm->node.nam);
-	    return NULL;
-	} else if (pm->node.flags & PM_UNSET) {
-	    /* Semaphore with createparam() */
-	    pm->node.flags &= ~PM_UNSET;
-	    if (pm->node.flags & PM_NEWREF)	/* See setloopvar() */
-		return NULL;
-	    return (HashNode) pm;
-	} else if (refname) {
-	    if (stop && strcmp(refname, stop->name) == 0) {
-		/* zwarnnam(refname, "invalid self reference"); */
-		return (HashNode)pm;
-	    }
-	    if (*refname)
-		seek = refname;
-	}
-    }
-    else if (pm) {
-	if (!(stop && (stop->flags & PM_NAMEREF)))
-	    return (HashNode)pm;
-	if (!(pm->node.flags & PM_NAMEREF))
-	    return (pm->level < locallevel ? NULL : (HashNode)pm);
-    }
-    if (seek) {
-	queue_signals();
+/**/
+static Param
+resolve_nameref_rec(Param pm, const Param stop, int keep_lastref)
+{
+    Param ref = pm;
+    char *refname;
+    if (!pm || !(pm->node.flags & PM_NAMEREF) || (pm->node.flags & PM_UNSET)
 	/* pm->width is the offset of any subscript */
-	if (pm && (pm->node.flags & PM_NAMEREF) && pm->width) {
-	    if (stop) {
-		if (stop->flags & PM_NAMEREF)
-		    hn = (HashNode)pm;
-		else
-		    hn = NULL;
-	    } else {
-		/* this has to be the end of any chain */
-		hn = (HashNode)pm;	/* see fetchvalue() */
-	    }
-	} else if ((hn = gethashnode2(realparamtab, seek))) {
-	    if (pm) {
-		if (!(stop && (stop->flags & (PM_LOCAL)))) {
-		    if ((pm->node.flags & PM_NAMEREF) &&
-			(pm->node.flags & PM_UPPER))
-			hn = (HashNode)upscope_upper((Param)hn, pm->level - 1);
-		    else
-			hn = (HashNode)upscope((Param)hn,
-					       (pm->node.flags & PM_NAMEREF) ?
-					       (pm->base) : ((Param)hn)->level);
-		}
-		hn = loadparamnode(paramtab, (Param)hn, seek);
-		/* user can't tag a nameref, safe for loop detection */
-		pm->node.flags |= PM_TAGGED;
-	    }
-	    if (hn) {
-		if (!(hn->flags & PM_UNSET))
-		    hn = resolve_nameref((Param)hn, stop);
-	    }
-	    if (pm)
-		pm->node.flags &= ~PM_TAGGED;
-	} else if (stop && (stop->flags & PM_NAMEREF))
-	    hn = (pm && (pm->node.flags & PM_NEWREF)) ? NULL : (HashNode)pm;
-	unqueue_signals();
+	/* If present, it has to be the end of any chain, see fetchvalue() */
+	|| pm->width || !(refname = GETREFNAME(pm)) || !*refname)
+	return pm;
+    if (pm->node.flags & PM_TAGGED) {
+	zerr("%s: invalid self reference", pm->node.nam);
+	return NULL;
     }
-
-    return hn;
+    queue_signals();
+    if ((pm = (Param)gethashnode2(realparamtab, refname))) {
+	if ((pm = loadparamnode(paramtab, upscope(pm, ref), refname)) &&
+	    pm != stop && !(pm->node.flags & PM_UNSET)) {
+	    /* user can't tag a nameref, safe for loop detection */
+	    ref->node.flags |= PM_TAGGED;
+	    pm = resolve_nameref_rec(pm, stop, keep_lastref);
+	    ref->node.flags &= ~PM_TAGGED;
+	}
+    } else if (keep_lastref)
+	pm = ref;
+    unqueue_signals();
+    return pm;
 }
 
 /**/
@@ -6397,10 +6374,7 @@ setloopvar(char *name, char *value)
       pm->base = pm->width = 0;
       SETREFNAME(pm, ztrdup(value));
       pm->node.flags &= ~PM_UNSET;
-      pm->node.flags |= PM_NEWREF;
       setscope(pm);
-      if (!errflag)
-	  pm->node.flags &= ~PM_NEWREF;
   } else
       setsparam(name, ztrdup(value));
 }
@@ -6410,9 +6384,8 @@ static void
 setscope(Param pm)
 {
     queue_signals();
-    if (pm->node.flags & PM_NAMEREF) do {
-	Param basepm;
-	struct asgment stop;
+    if (pm->node.flags & PM_NAMEREF) {
+	Param basepm = NULL;
 	char *refname = GETREFNAME(pm);
 	char *t = refname ? itype_end(refname, INAMESPC, 0) : NULL;
 	int q = queue_signal_level();
@@ -6433,8 +6406,8 @@ setscope(Param pm)
 	if (!(pm->node.flags & PM_UPPER) && refname &&
 	    (basepm = (Param)gethashnode2(realparamtab, refname)) &&
 	    (basepm = (Param)loadparamnode(realparamtab, basepm, refname)) &&
-	    (!(basepm->node.flags & PM_NEWREF) || (basepm = basepm->old))) {
-	    pm->base = basepm->level;
+	    (basepm != pm || !basepm->old || (basepm = basepm->old))) {
+	    setscope_base(pm, basepm->level);
 	}
 	if (pm->base > pm->level) {
 	    if (EMULATION(EMULATE_KSH)) {
@@ -6447,60 +6420,46 @@ setscope(Param pm)
 	}
 
 	/* Check for self references */
-	stop.name = pm->node.nam;
-	stop.value.scalar = NULL;
-	stop.flags = PM_NAMEREF;
-	dont_queue_signals();	/* Prevent unkillable loops */
-	basepm = (Param)resolve_nameref(pm, &stop);
-	restore_queue_signals(q);
-	if (basepm) {
-	    if (basepm->node.flags & PM_NAMEREF) {
-		if (pm == basepm) {
-		    if (pm->base == pm->level) {
-			if (refname && *refname &&
-			    strcmp(pm->node.nam, refname) == 0) {
-			    zerr("%s: invalid self reference", refname);
-			    unsetparam_pm(pm, 0, 1);
-			    break;
-			}
-		    }
-		} else if ((t = GETREFNAME(basepm))) {
-		    if (basepm->base <= basepm->level &&
-			strcmp(pm->node.nam, t) == 0) {
-			zerr("%s: invalid self reference", refname);
-			unsetparam_pm(pm, 0, 1);
-			break;
-		    }
-		}
-	    }
+	if (refname && *refname && !pm->width && basepm != pm) {
+	    dont_queue_signals();	/* Prevent unkillable loops */
+	    basepm = resolve_nameref_rec(pm, pm, 0);
+	    restore_queue_signals(q);
 	}
-	if (refname && upscope(pm, pm->base) == pm &&
-	    strcmp(pm->node.nam, refname) == 0) {
+	if (pm == basepm) {
 	    zerr("%s: invalid self reference", refname);
 	    unsetparam_pm(pm, 0, 1);
 	}
-    } while (0);
+    }
     unqueue_signals();
 }
 
 /**/
-static Param
-upscope(Param pm, int reflevel)
+static void
+setscope_base(Param pm, int base)
 {
-    Param up = pm->old;
-    while (up && up->level >= reflevel) {
-	pm = up;
-	up = up->old;
+    if ((pm->base = base) > pm->level) {
+	LinkList refs;
+	if (base >= scoperefs_num) {
+	    int old_num = scoperefs_num;
+	    int new_num = scoperefs_num = MAX(2 * base, 8);
+	    scoperefs = zrealloc(scoperefs, new_num * sizeof(refs));
+	    memset(scoperefs + old_num, 0, (new_num - old_num) * sizeof(refs));
+	}
+	refs = scoperefs[base];
+	if (!refs)
+	    refs = scoperefs[base] = znewlinklist();
+	zpushnode(refs, pm);
     }
-    return pm;
 }
 
 /**/
 static Param
-upscope_upper(Param pm, int reflevel)
+upscope(Param pm, const Param ref)
 {
-    while (pm && pm->level > reflevel)
-	pm = pm->old;
+    if (ref->node.flags & PM_UPPER)
+	while (pm->level > ref->level - 1 && (pm = pm->old));
+    else
+	for (; pm->old && pm->old->level >= ref->base; pm = pm->old);
     return pm;
 }
 

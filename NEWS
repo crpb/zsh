@@ -54,11 +54,23 @@ NTP, etc. For the most part this is transparent to users. However, as a
 side effect, some features like $SECONDS and the time keyword gained
 (nominal) nanosecond precision.
 
-The zsh/zutil module's zparseopts builtin learnt a -v option which can
-be used to specify the array of arguments to parse instead of $@.
+The zsh/zutil module's zparseopts builtin learnt the following:
 
-The zparseopts builtin also learnt a -G option which enables GNU-style
-argument parsing ('--opt=arg', etc.).
+  - a new -G option enables GNU-style argument parsing
+    ('--opt=arg', etc.)
+
+  - a new -n option sets the program name for usage errors
+
+  - a new -v option specifies the array of arguments to parse instead
+    of $@
+
+  - a single empty option spec signifies that no options are recognised
+
+Also, zparseopts now uses standard argument parsing for its own options,
+enabling support for option stacking (-DFG instead of -D -F -G).
+
+A new contrib function zgetopt was added. It wraps `zparseopts -G` to
+provide an interface similar to util-linux's getopt(1).
 
 The module zsh/pcre has been updated to use the pcre2 library.
 
@@ -71,6 +83,8 @@ current-shell actions.
 The new completion helper _shadow can be used to temporarily wrap or
 substitute a function. The contrib function mkshadow makes it easier
 to use outside of completion contexts.
+
+The zsh/mathfunc module now provides isnan() and isinf() functions.
 
 Changes since 5.8.1
 -------------------

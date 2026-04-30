@@ -1,3 +1,217 @@
+2026-04-29  dana  <dana@dana.is>
+
+	* unposted: Completion/Linux/Command/_opkg: guard zparseopts
+	long-option specs
+
+	* 54376: Doc/Zsh/mod_zutil.yo, NEWS, README,
+	Src/Modules/zutil.c, Test/V12zparseopts.ztst: zparseopts: use
+	standard option parsing
+
+	* 54381: Doc/Zsh/mod_zutil.yo, README, Src/Modules/zutil.c,
+	Test/V12zparseopts.ztst: zparseopts -M: use last as-given
+	option name in arrays
+
+	* 54395: Doc/Zsh/contrib.yo, Functions/Misc/zgetopt, NEWS,
+	Test/Z04zgetopt.ztst: contrib: add zgetopt (again)
+
+	* unposted: Completion/Zsh/Command/_compinit: add _compinit
+
+2026-04-28  dana  <dana@dana.is>
+
+	* 54394: Completion/Unix/Command/_7zip: add _7zip
+
+	* Matt Koscica: github #167: Completion/Unix/Command/_tmux:
+	include new options added between 3.4 and next-3.7
+
+2026-04-28  Mikael Magnusson  <mikachu@gmail.com>
+
+	* Philippe Altherr: 54342: Src/params.c, Test/A06assign.ztst:
+	Fix handling of reversed slices of scalar values
+
+	* 54402: Src/Modules/pcre.c: Fix crash in pcre_callout with
+	numerical callout 0
+
+	* 54403: Doc/Zsh/mod_pcre.yo: Add some more details on pcre
+	callouts
+
+	* 54406: Doc/Zsh/arith.yo, Doc/Zsh/mod_pcre.yo: Fix my yodl code
+	and another instance in arith.yo
+
+2026-04-19  dana  <dana@dana.is>
+
+	* 54362: Doc/Zsh/mod_zutil.yo, Src/Modules/zutil.c,
+	Test/V12zparseopts.ztst: zparseopts: support empty optspec
+
+	* 54361 (tweaked): Completion/Zsh/Command/_zparseopts,
+	Doc/Zsh/mod_zutil.yo, Src/Modules/zutil.c,
+	Test/V12zparseopts.ztst: zparseopts: print friendlier usage
+	errors, add -n option
+
+2026-04-14  Oliver Kiddle  <opk@zsh.org>
+
+	* 54181, 54331: Completion/Zsh/Command/_set,
+	Doc/Makefile.in, Doc/Zsh/builtins.yo, Doc/Zsh/compat.yo,
+	Doc/Zsh/grammar.yo, Doc/Zsh/invoke.yo, Doc/Zsh/manual.yo,
+	Doc/Zsh/options.yo, Doc/Zsh/restricted.yo, README,
+	Src/Modules/db_gdbm.c, Src/Modules/parameter.c, Src/builtin.c,
+	Src/exec.c, Src/init.c, Src/jobs.c, Src/options.c, Src/params.c,
+	Src/signals.c, Test/E01options.ztst, configure.ac:
+	remove support for restricted shell
+
+2026-04-13  dana  <dana@dana.is>
+
+	* dana + Jun T: 54329 + 54339: Doc/Makefile.in, Doc/intro.ms:
+	replace pdfroff by `groff -Tpdf`
+
+	* 54318: Doc/Zsh/arith.yo, Doc/Zsh/mod_mathfunc.yo,
+	Functions/Misc/zmathfuncdef, NEWS, Src/Modules/mathfunc.c,
+	Test/V03mathfunc.ztst: mathfunc: add isnan() and isinf(). also
+	document NaN + Inf
+
+	* 54313: README, Src/params.c, Test/B02typeset.ztst: convfloat:
+	use consistent capitalisation for NaN, Inf, and -Inf
+
+2026-04-13  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* 54327: Completion/Zsh/Type/_parameters: names with dot are
+	allowed except just after $
+
+2026-04-09  Mikael Magnusson  <mikachu@gmail.com>
+
+	* unposted: Doc/Zsh/params.yo: missing space in list of cmdsubst
+	constructs
+
+2026-04-08  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* 54295: Doc/Zsh/arith.yo: document that floating point
+	exceptions are ignored
+
+2026-04-08  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 54319: Completion/compinit: turn off AUTO_NAME_DIRS option
+	in completion
+
+2026-04-07  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* 54285: Src/builtin.c, Test/C01arith.ztst: 'let' builtin
+	should return 2 if error occurred
+
+	* unposted: Doc/Zsh/expn.yo: fix a reference to Arithmetic
+	Evaluation.
+
+2026-04-05  dana  <dana@dana.is>
+
+	* Bao Trinh: github #156: Completion/Unix/Command/_git: fix
+	--git-dir and --work-tree options when used with parameters
+
+	* Christopher Bock: github #153: Completion/Unix/Command/_zfs:
+	_zfs update zpool-prop's
+
+	* 54159: Doc/Zsh/mod_datetime.yo, README,
+	Src/Modules/datetime.c, Test/V09datetime.ztst: strftime:
+	respect empty TZ
+
+	* 54144: Src/Zle/termquery.c: termquery: don't warn about
+	creating .term.* params
+
+	* 53299: Src/Modules/zutil.c, Test/V12zparseopts.ztst:
+	zparseopts: improve accuracy of bad-option message
+
+2026-04-05  Oliver Kiddle  <opk@zsh.org>
+
+	* Ronan Pigott: 54208: Completion/Unix/Command/_cp:
+	allow multiple --preserve flags
+
+	* Johannes Altmanninger: 54155: Src/Zle/termquery.c:
+	specify $HOST in OSC7 working directory report
+
+	* Johannes Altmanninger: 54154: Src/Zle/termquery.c:
+	extract function for URL-encoding and writing to TTY
+
+	* 54276: Completion/Unix/Command/_zfs: fix to add full list
+	of compression algorithms as completion matches
+
+2026-04-03  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* Eisuke Kawashima: github #163: Completion/Unix/Command/_ssh:
+	fix completion of ssh (option -E)
+
+	* Eisuke Kawashima: github #155: Completion/Unix/Command/_git:
+	update git completion
+
+	* Christopher Bock: github #152: Completion/Debian/Command/_apt:
+	_apt fix typos
+
+2026-03-31  Bart Schaefer  <schaefer@zsh.org>
+
+	* Philippe: 54048: Src/params.c, Test/K01nameref.ztst: consistently
+	re-bind named references when returning from greater locallevel
+
+	* Philippe: 54262: Src/params.c, Test/K01nameref.ztst: track
+	and revert hidden references in chains that extend across
+	locallevel scopes
+
+	* Philippe: 54261: Src/builtin.c, Src/params.c, Src/zsh.h,
+	Test/K01nameref.ztst, Test/V10private.ztst: `unset -n` removes
+	named-reference-ness of a parameter when removing the referent.
+
+2026-03-30  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* 54252: Src/Zle/compcore.c: allow single dot as a valid (yet
+	incomplete) parameter name
+
+	* 54251: Completion/Zsh/Type/_parameters: complete names with
+	dot (such as .namespace.param) only after ${
+
+2026-03-26  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* Stéphane Blondon: 54246: Completion/Zsh/Function/_zcalc:
+	accept option -r (RPN mode)
+
+2026-03-24  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* 54170: Src/Zle/compresult.c: be sure to skip dummy matches
+	when completing (to avoid core dump)
+
+	* 54241 + 54242: Completion/Unix/Type/_path_commands,
+	Completion/Zsh/Type/_parameters, Doc/Zsh/compsys.yo,
+	Test/Y01completion.ztst: use extra-verbose style for displaying
+	parameter values when completing parameter names
+
+2026-03-09  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* unposted: Doc/zman.yo: fix an error in nmref()
+
+	* 54185 + 54209: Completion/Unix/Command/_find,
+	Completion/Unix/Command/_git, Completion/Unix/Command/_iftop,
+	Completion/Unix/Command/_tcpdump, Completion/Zsh/Type/_globquals,
+	Completion/Zsh/Type/_parameters, Test/Y01completion.ztst: set
+	default value of verbose style to true
+
+2026-02-21  Bart Schaefer  <schaefer@zsh.org>
+
+	* dana: 54203: Test/A08time.ztst: replace "read -t" with "zselect"
+
+2026-02-16  Bart Schaefer  <schaefer@zsh.org>
+
+	* Philippe: 53776: Src/builtin.c, Src/exec.c, Src/module.c,
+	Src/params.c,  Src/subst.c,  Src/zsh.h, Src/Modules/param_private.c,
+	Src/Modules/parameter.c, Src/Zle/complete.c,  Src/Zle/computil.c,
+	Src/Zle/zle_params.c: Treat PM_NAMEREF as first-class PM_TYPE,
+	enabling rejection of array initializers for namerefs
+
+	* Philippe: 54122: Src/builtin.c, Test/K01nameref.ztst: avoid
+	warnings for valid nameref options
+
+	* Philippe: 54063: Src/Modules/param_private.c, Src/builtin.c,
+	Src/params.c, Src/zsh.h, Test/K01nameref.ztst: Simplifications
+	for resolve_nameref() and setscope()
+
+2026-02-04  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
+
+	* unposted: Doc/Zsh/compsys.yo: fix a format error introduced
+	by worker/53821
+
 2025-12-21  Jun-ichi Takimoto  <takimoto-j@kba.biglobe.ne.jp>
 
 	* 53959+54149: Src/glob.c, Test/D02glob.ztst: when redirecting
@@ -5,6 +219,9 @@
 	error even if NULL_GLOB is in effect.
 
 2025-12-16  Oliver Kiddle  <opk@zsh.org>
+
+	* Christopher Bock: 54150: Completion/Debian/Command/_dpkg:
+	the option --license was removed in 2010
 
 	* Christopher Bock: 54148: Completion/Debian/Command/_apt:
 	use same set of options for apt as with apt-get
