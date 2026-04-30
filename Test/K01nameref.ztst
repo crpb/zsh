@@ -132,6 +132,68 @@
        echo "$0: ref1=$ref1 ref2=$ref2 ref3=$ref3";
    }
 
+ # Helper function to test assigning and typesetting named references
+ # in different contexts.
+ #
+ # Runs the code passed in "$1" for all combinations of the following
+ # variables:
+ #
+ # - K: Kind of target reference. The assigned/typeset reference is
+ #   one of the following kind:
+ #   - "i": unInitialized reference:
+ #     e.g., "ref0" in "typeset -n ref0"
+ #   - "s": unSet reference:
+ #     e.g., "ref0" in "typeset -n ref0; unset ref0"
+ #   - "d": reference to not-yet-Defined variable:
+ #     e.g., "ref0" in "typeset -n ref0=var" where "var" isn't defined
+ #
+ # - G: Global vs local references
+ #   - "-g": All test variables/references are global ones.
+ #   - ""  : All test variables/references are local ones.
+ #
+ # - N: direct vs indirect references
+ #   - "0": The target reference "ref0" is directly assigned/typeset.
+ #   - "1": The target reference "ref0" is assigned/typeset via a
+ #          named reference "ref1" that refers to "ref0".
+ test-setting-ref() {
+   local K G N;
+   for K in i s d; do
+     for G in -g ""; do
+       for N in 0 1; do
+         test-setting-ref-aux $1
+       done
+     done
+   done
+   unset -n ref0 ref1 var
+ }
+ # Helper function for the function test-setting-ref defined above.
+ #
+ # Runs the code passed in "$1" for the context specified by the
+ # variables "K", "G", and "N".
+ test-setting-ref-aux() {
+   unset -n ref0 ref1 var
+   # In several contexts different code paths are involved depending
+   # on whether the target reference "ref0" is assigned/typeset
+   # directly or via a named reference that refers to it. However, it
+   # doesn't seem to make a difference whether the chain of references
+   # is short or long. Therefore only chains of one reference are
+   # tested. One can manually double check that longer chains work the
+   # same by replacing the following line by one of the commented one
+   # just below and checking that all tests still pass.
+   ((N < 1)) || typeset $G -n ref1=ref0
+   # ((N < 1)) || typeset $G -n refX=ref0 ref1=refX
+   # ((N < 1)) || typeset $G -n refX=ref0 refY=refX ref1=refY
+   local kind print
+   case $K in
+     i) kind="uninitialized reference"     ; check=ref0; typeset $G -n ref0;;
+     s) kind="unset reference"             ; check=ref0; typeset $G -n ref0; unset -n ref0;;
+     d) kind="reference to not-yet-defined"; check=var ; typeset $G -n ref0=var;;
+     *) echo "Unrecognized case: $case"; return;;
+   esac
+   echo "# $K:$kind - ${${G:-local}/-g/global} - ref$N"
+   { eval ${(e)1}; typeset -p $check } always { TRY_BLOCK_ERROR=0 } 2>&1
+ }
+
 %test
 
  typeset -n ptr
@@ -187,11 +249,13 @@
 >typeset -n ptr=gvar
 
  typeset -n ptr
+ typeset -p ptr
  typeset -t ptr
  typeset -p ptr
 0:change type of a placeholder
 F:Other type changes are fatal errors, should this also be?
->typeset -n ptr=''
+>typeset -n ptr
+>typeset -n ptr
 *?*ptr: can't change type of a named reference
 
  typeset -n ptr=var
@@ -1183,8 +1247,8 @@ F:previously this could create an infinite recursion and crash
 0:Transitive references with scoping changes
 >f4: ref1=f4 ref2=XX ref3=f4
 >f3: ref1=f3 ref2=XX ref3=f3
->g5: ref1=f3 ref2=XX ref3=g4
->g4: ref1=f3 ref2=XX ref3=g4
+>g5: ref1=f3 ref2=XX ref3=f3
+>g4: ref1=f3 ref2=XX ref3=f3
 >f3: ref1=f3 ref2=XX ref3=f3
 >f2: ref1=f1 ref2=XX ref3=f1
 >f1: ref1=f1 ref2=f1 ref3=f1
@@ -1193,6 +1257,81 @@ F:previously this could create an infinite recursion and crash
 >h3: ref1=f1 ref2=f1 ref3=f1
 >h2: ref1=f1 ref2=f1 ref3=f1
 >f1: ref1=f1 ref2=f1 ref3=f1
+
+ () {
+   typeset -n ref1 ref2
+   local var=l1
+   () {
+     () {
+       local var=l3
+       ref1=var
+       echo A1: ref1=$ref1 ref2=$ref2
+     }
+     ref2=var
+     # At this point, "ref1" and "ref2" refer to the same variable
+     # "var". Going forward, they should behave the same.
+     echo A2: ref1=$ref1 ref2=$ref2
+     () {
+       local var=l3
+       echo A3: ref1=$ref1 ref2=$ref2
+     }
+     echo A4: ref1=$ref1 ref2=$ref2
+     local var=l2
+     echo A5: ref1=$ref1 ref2=$ref2
+   }
+   echo A6: ref1=$ref1 ref2=$ref2
+ }
+ () {
+   typeset -n ref1 ref2
+   () {
+     () {
+       local var=l3
+       ref1=var
+       echo B1: ref1=$ref1 ref2=$ref2
+     }
+     ref2=var
+     # At this point, "ref1" and "ref2" refer to the same undefined
+     # variable "var". Going forward, they should behave the same.
+     echo B2: ref1=$ref1 ref2=$ref2
+     () {
+       () {
+         local var=l4
+         echo B3: ref1=$ref1 ref2=$ref2
+       }
+       local var=l3
+       echo B4: ref1=$ref1 ref2=$ref2
+     }
+     local var=l2
+     echo B5: ref1=$ref1 ref2=$ref2
+     () {
+       () {
+         local var=l4
+         echo B6: ref1=$ref1 ref2=$ref2
+       }
+       local var=l3
+       echo B7: ref1=$ref1 ref2=$ref2
+     }
+     echo B8: ref1=$ref1 ref2=$ref2
+   }
+   local var=l1
+   echo B9: ref1=$ref1 ref2=$ref2
+ }
+0:rebound nameref behaves the same as newly bound one
+>A1: ref1=l3 ref2=
+>A2: ref1=l1 ref2=l1
+>A3: ref1=l1 ref2=l1
+>A4: ref1=l1 ref2=l1
+>A5: ref1=l1 ref2=l1
+>A6: ref1=l1 ref2=l1
+>B1: ref1=l3 ref2=
+>B2: ref1= ref2=
+>B3: ref1=l4 ref2=l4
+>B4: ref1=l3 ref2=l3
+>B5: ref1=l2 ref2=l2
+>B6: ref1=l2 ref2=l2
+>B7: ref1=l2 ref2=l2
+>B8: ref1=l2 ref2=l2
+>B9: ref1=l1 ref2=l1
 
 #
 # The following two tests are linked, do not separate
@@ -1436,39 +1575,12 @@ F:$$[1] reference should print the first digit of $$ but prints nothing
  () {
    typeset ref2=foo
    ref1=ref2
+   echo reached
  }
- echo reached
- echo $ref1
  echo NOT REACHED
-1:expansion of incidental reference loop triggers error
+1:incidental reference loop triggers error
 >reached
-*?*: ref1: invalid self reference
-
- typeset -n ref1
- typeset -n ref2=ref1;
- () {
-   typeset ref2=foo
-   ref1=ref2
- }
- echo reached
- ref1=foo
- echo NOT REACHED
-1:assignment to incidental reference loop triggers error
->reached
-*?*: ref1: invalid self reference
-
- typeset -n ref1
- typeset -n ref2=ref1;
- () {
-   typeset ref2=foo
-   ref1=ref2
- }
- echo reached
- typeset -n ref3=ref1
- echo NOT REACHED
-1:reference to incidental reference loop triggers error
->reached
-*?*: ref1: invalid self reference
+*?*: ref2: invalid self reference
 
  typeset -A -g VAR0=(aa AA)
  typeset -n -g REF0=VAR0
@@ -1658,5 +1770,250 @@ F:converting from association/array to string should work here too
  }
 1:self reference via upper reference
 ?(anon):3: ref1: invalid self reference
+
+ # The call to "test-setting-ref 'ref$N=str'" expands to the
+ # equivalent of the following:
+ #
+ # # Test uninitialized references
+ # typeset -g -n ref0          ;                ref0=str; typeset -p ref0; unset -n ref0
+ # typeset -g -n ref0 ref1=ref0;                ref1=str; typeset -p ref0; unset -n ref0 ref1
+ # typeset    -n ref0          ;                ref0=str; typeset -p ref0; unset -n ref0
+ # typeset    -n ref0 ref1=ref0;                ref1=str; typeset -p ref0; unset -n ref0 ref1
+ # # Test unset references
+ # typeset -g -n ref0          ; unset -n ref0; ref0=str; typeset -p ref0; unset -n ref0
+ # ...
+ # # Test references to not-yet-defined variables
+ # typeset -g -n ref0=var      ;                ref0=str; typeset -p var ; unset -n ref0 var
+ # ...
+ test-setting-ref 'ref$N=str'
+0:assign not fully defined reference with string
+># i:uninitialized reference - global - ref0
+>typeset -g -n ref0=str
+># i:uninitialized reference - global - ref1
+>typeset -g -n ref0=str
+># i:uninitialized reference - local - ref0
+>typeset -n ref0=str
+># i:uninitialized reference - local - ref1
+>typeset -n ref0=str
+># s:unset reference - global - ref0
+>typeset -g ref0=str
+># s:unset reference - global - ref1
+>typeset -g ref0=str
+># s:unset reference - local - ref0
+>typeset ref0=str
+># s:unset reference - local - ref1
+>typeset ref0=str
+># d:reference to not-yet-defined - global - ref0
+>typeset -g var=str
+># d:reference to not-yet-defined - global - ref1
+>typeset -g var=str
+># d:reference to not-yet-defined - local - ref0
+>typeset -g var=str
+># d:reference to not-yet-defined - local - ref1
+>typeset -g var=str
+
+ test-setting-ref 'ref$N=( foo bar )'
+0:assign not fully defined reference with array
+># i:uninitialized reference - global - ref0
+>(eval):1: ref0: can't change type of a named reference
+>typeset -g -n ref0
+># i:uninitialized reference - global - ref1
+>(eval):1: ref1: can't change type of a named reference
+>typeset -g -n ref0
+># i:uninitialized reference - local - ref0
+>(eval):1: ref0: can't change type of a named reference
+>typeset -n ref0
+># i:uninitialized reference - local - ref1
+>(eval):1: ref1: can't change type of a named reference
+>typeset -n ref0
+># s:unset reference - global - ref0
+>typeset -g -a ref0=( foo bar )
+># s:unset reference - global - ref1
+>typeset -g -a ref0=( foo bar )
+># s:unset reference - local - ref0
+>typeset -a ref0=( foo bar )
+># s:unset reference - local - ref1
+>typeset -a ref0=( foo bar )
+># d:reference to not-yet-defined - global - ref0
+>typeset -g -a var=( foo bar )
+># d:reference to not-yet-defined - global - ref1
+>typeset -g -a var=( foo bar )
+># d:reference to not-yet-defined - local - ref0
+>typeset -g -a var=( foo bar )
+># d:reference to not-yet-defined - local - ref1
+>typeset -g -a var=( foo bar )
+
+ test-setting-ref 'typeset $G ref$N=str'
+0:typeset not fully defined reference with string
+># i:uninitialized reference - global - ref0
+>typeset -g -n ref0=str
+># i:uninitialized reference - global - ref1
+>typeset -g -n ref0=str
+># i:uninitialized reference - local - ref0
+>typeset -n ref0=str
+># i:uninitialized reference - local - ref1
+>typeset -n ref0=str
+># s:unset reference - global - ref0
+>typeset -g ref0=str
+># s:unset reference - global - ref1
+>typeset -g ref0=str
+># s:unset reference - local - ref0
+>typeset ref0=str
+># s:unset reference - local - ref1
+>typeset ref0=str
+># d:reference to not-yet-defined - global - ref0
+>typeset -g var=str
+># d:reference to not-yet-defined - global - ref1
+>typeset -g var=str
+># d:reference to not-yet-defined - local - ref0
+>typeset var=str
+># d:reference to not-yet-defined - local - ref1
+>typeset var=str
+
+ test-setting-ref 'typeset $G -a ref$N=( foo bar )'
+0:typeset not fully defined reference with array
+># i:uninitialized reference - global - ref0
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -g -n ref0
+># i:uninitialized reference - global - ref1
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -g -n ref0
+># i:uninitialized reference - local - ref0
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -n ref0
+># i:uninitialized reference - local - ref1
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -n ref0
+># s:unset reference - global - ref0
+>typeset -g -a ref0=( foo bar )
+># s:unset reference - global - ref1
+>typeset -g -a ref0=( foo bar )
+># s:unset reference - local - ref0
+>typeset -a ref0=( foo bar )
+># s:unset reference - local - ref1
+>typeset -a ref0=( foo bar )
+># d:reference to not-yet-defined - global - ref0
+>typeset -g -a var=( foo bar )
+># d:reference to not-yet-defined - global - ref1
+>typeset -g -a var=( foo bar )
+># d:reference to not-yet-defined - local - ref0
+>typeset -a var=( foo bar )
+># d:reference to not-yet-defined - local - ref1
+>typeset -a var=( foo bar )
+
+ typeset i42=42
+ test-setting-ref 'typeset $G -i ref$N=i42'
+0:typeset not fully defined reference with integer
+># i:uninitialized reference - global - ref0
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -g -n ref0
+># i:uninitialized reference - global - ref1
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -g -n ref0
+># i:uninitialized reference - local - ref0
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -n ref0
+># i:uninitialized reference - local - ref1
+>(eval):typeset:1: ref0: can't change type of a named reference
+>typeset -n ref0
+># s:unset reference - global - ref0
+>typeset -g -i ref0=42
+># s:unset reference - global - ref1
+>typeset -g -i ref0=42
+># s:unset reference - local - ref0
+>typeset -i ref0=42
+># s:unset reference - local - ref1
+>typeset -i ref0=42
+># d:reference to not-yet-defined - global - ref0
+>typeset -g -i var=42
+># d:reference to not-yet-defined - global - ref1
+>typeset -g -i var=42
+># d:reference to not-yet-defined - local - ref0
+>typeset -i var=42
+># d:reference to not-yet-defined - local - ref1
+>typeset -i var=42
+
+ typeset -n ref1
+ typeset -n ref2
+ typeset -n ref3=ref2
+ typeset var=aaa
+ () {
+   typeset -i ref2=123 # Hides the reference ref2 in this scope and nested scopes
+   typeset var=bbb
+   () {
+     typeset var=ccc
+     ref1=var
+     ref3=var # From now on ref1 and ref3 should always refer to the same variable
+     echo A:ref1=$ref1 ref2=$ref2 ref3=$ref3
+   } # Both top-level references ref1 and ref2 should be rebound
+   echo B:ref1=$ref1 ref2=$ref2 ref3=$ref3
+   () {
+     typeset var=ddd # No reference should refer to this variable
+     echo C:ref1=$ref1 ref2=$ref2 ref3=$ref3
+   }
+   echo D:ref1=$ref1 ref2=$ref2 ref3=$ref3
+ } # Both top-level references ref1 and ref2 should be rebound
+ echo E:ref1=$ref1 ref2=$ref2 ref3=$ref3
+ () {
+   typeset var=eee # No reference should refer to this variable
+   echo F:ref1=$ref1 ref2=$ref2 ref3=$ref3
+ }
+ echo G:ref1=$ref1 ref2=$ref2 ref3=$ref3
+0:hidden reference refers to a nested variable
+>A:ref1=ccc ref2=123 ref3=ccc
+>B:ref1=bbb ref2=123 ref3=bbb
+>C:ref1=bbb ref2=123 ref3=bbb
+>D:ref1=bbb ref2=123 ref3=bbb
+>E:ref1=aaa ref2=aaa ref3=aaa
+>F:ref1=aaa ref2=aaa ref3=aaa
+>G:ref1=aaa ref2=aaa ref3=aaa
+
+ typeset ref
+ typeset var1=var1@scope1
+ typeset var2=var2@scope1
+ () { # enter scope 2
+   typeset var1=var1@scope2
+   typeset var2=var2@scope2
+   typeset -g -n ref=var1; echo A:$ref # ref added to scope 2
+   typeset -g -n ref=var2; echo B:$ref # ref added to scope 2
+   () { # enter scope 3
+     typeset var1=var1@scope3
+     typeset -g -n ref=var1; echo C:$ref # ref added to scope 3
+     () { # enter scope 4
+       typeset var1=var1@scope4
+       typeset var2=var2@scope4
+       typeset -g -n ref=var1; echo D:$ref # ref added to scope 4
+       typeset -g -n ref=var2; echo E:$ref # ref added to scope 4
+     } # leave scope 4: ref rebound to var2 in scope 2 and added to scope 2
+     echo F:$ref
+   } # leave scope 3: ref remains bound to var2 in scope 2
+   echo G:$ref
+   unset -n ref # ref is unset
+   echo H:$ref
+ } # leave scope 2: ref remains unset
+ echo I:$ref
+0:reference refers successively to multiple variables in multiple nested scopes
+>A:var1@scope2
+>B:var2@scope2
+>C:var1@scope3
+>D:var1@scope4
+>E:var2@scope4
+>F:var2@scope2
+>G:var2@scope2
+>H:
+>I:
+
+ typeset ref
+ () { # enter scope 2
+   typeset var=var
+   typeset -g -n ref=var; echo A:$ref # ref added to scope 2
+   unset -n ref
+   typeset -g -i16 ref=255; echo B:$ref # ref becomes an integer in base 16
+ } # leave scope 2: ref remains an integer in base 16
+ echo C:$ref
+0:reference referring to a nested variable becomes an integer
+>A:var
+>B:16#FF
+>C:16#FF
 
 %clean

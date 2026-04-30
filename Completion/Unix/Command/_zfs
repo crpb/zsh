@@ -30,6 +30,7 @@ ro_po_props=( # readonly
   'dedupratio[deduplication ratio]'
   'free[space unallocated]'
   'health[health status]'
+  'name[pool name]'
   'size[total size]'
 )
 ci_po_props=( # only set at create or import
@@ -45,7 +46,6 @@ rw_po_props=(
   'dedupditto[threshold for number of copies]:value [0]'
   'delegation[delegated administration]:value:(on off)'
   'failmode[failure-mode behavior]:value:(wait continue panic)'
-  "listshares[show shares in 'zfs list']:value:(on off)"
   "listsnaps[show snapshots in 'zfs list']:value:(on off)"
   'version[pool version]:version'
 )
@@ -65,10 +65,10 @@ rw_ds_props=(
   'aclinherit:value:(discard noallow restricted passthrough passthrough-x)'
   'atime:value:(on off)'
   'canmount:value:(on off noauto)'
-  "checksum:value:($sum_algorithms)"
-  "compression:value:($comp_algorithms)"
+  'checksum:value:($sum_algorithms)'
+  'compression:value:($comp_algorithms)'
   'copies:value:(1 2 3)'
-  "dedup:value:($dedup_algorithms)"
+  'dedup:value:($dedup_algorithms)'
   'devices:value:(on off)'
   'encryption:value:(off on aes128-ccm aes-192-ccm aes-256-ccm aes-128-gcm aes-192-gcm aes-256-gcm)'
   'exec:value:(on off)'
@@ -126,11 +126,13 @@ case $service:$implementation in
       'bcloneratio[block cloning ratio for saved space]'
       'bclonesaved[amount of storage spared by use of block cloning]'
       'bcloneused[amount of storage used by cloned blocks]'
+      'dedup_table_size[size of dedup table on-disk]'
+      'dedupcached[size of dedup table in arc]'
       'expandsize[uninitialized space within the pool]'
       'fragmentation[amount of fragmentation in the pool]'
       'freeing[amount of space remaining to be reclaimed]'
-      'used[amount of storage space used within the pool]'
       'load_guid[unique identifier generated when pool is loaded]'
+      'used[amount of storage space used within the pool]'
     )
     ci_po_props+=(
       'ashift[pool sector size exponent]:exponent:((9\:512 10\:1024 11\:2048 12\:4096 13\:8192 14\:16384 15\:32768 16\:65536))'
@@ -138,6 +140,10 @@ case $service:$implementation in
     rw_po_props+=(
       'autotrim[periodically trim recently freed space]:value:(on off)'
       'comment[text string that is available even if the pool becomes faulted]:value'
+      "compatibility:compatibility feature set: _alternative \
+        ':toggle:(off legacy)' \
+        ':feature set:_sequence _files -W /usr/share/zfs/compatibility.d'"
+      'dedup_table_quota[limit of on-disk table]:value:(auto none)'
       'multihost[perform pool activity check during import]:value:(on off)'
       'feature@'
     )
@@ -223,6 +229,7 @@ case $service:$implementation in
     rw_po_props+=(
       'clustered[pool is imported as a global pool in Oracle Solaris Cluster]:value:(on off)'
       'scrubinternal[time interval between scheduled scrubs]:interval'
+      "listshares[show shares in 'zfs list']:value:(on off)"
     )
     ro_ds_props+=( keychangedate rekeydate effective{read,write}limit )
     rw_ds_props+=(
@@ -1416,7 +1423,7 @@ while (( $#state )); do
           case $MATCH in
             *feature@) _wanted states expl state compadd active enabled disabled ;;
             *quota@) _alternative \
-              'sizes: :_numbers -M "m\:{a-zA-Z}={A-Za-z}" -u bytes size \:B {k,M,G,T,P,E,Z}{,B}' \
+              'sizes: :_numbers -M "m:{a-zA-Z}={A-Za-z}" -u bytes size :B {k,M,G,T,P,E,Z}{,B}' \
               'properties:property:(none)'
             ;;
           esac

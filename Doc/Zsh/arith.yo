@@ -25,6 +25,8 @@ arithmetic expansion performed as for an argument of tt(let).  More
 precisely, `tt(LPAR()LPAR())var(...)tt(RPAR()RPAR())' is equivalent to
 `tt(let ")var(...)tt(")'.  The return status is 0 if the arithmetic value
 of the expression is non-zero, 1 if it is zero, and 2 if an error occurred.
+Floating point exceptions (division by zero, overflow, etc.) are ignored and
+not considered as errors.
 
 For example, the following statement
 
@@ -119,6 +121,33 @@ constant, but the exponent character tt(e) or tt(E) may not, as it will be
 taken for a parameter name.  All numeric parts (before and after the
 decimal point and in the exponent) may contain underscores after the
 leading digit for visual guidance; these are ignored in computation.
+
+The special floating point values NaN (not a number) and infinity are
+fully supported in floating point arithmetic.  They may be produced by
+certain operations, such as division by zero, or referenced explicitly in
+arithmetic constructs and float assignments using the case-insensitive
+constants tt(NaN) and tt(Inf).  Expansion syntax must be used to
+reference a parameter with one of these names in these contexts:
+
+example(% nan=123 INF=456
+% print $LPAR()LPAR() nan RPAR()RPAR() $LPAR()LPAR() INF RPAR()RPAR()
+NaN Inf
+% print $LPAR()LPAR() $nan RPAR()RPAR() $LPAR()LPAR() $INF RPAR()RPAR()
+123 456
+% typeset -F f=nan && typeset -p f
+typeset -F f=NaN
+% typeset -F f=$nan && typeset -p f
+typeset -F f=123.0000000000)
+
+To check whether a value is NaN, either use the tt(isnan) function
+provided by the tt(zsh/mathfunc) module
+or compare it to the string tt(NaN):
+
+example(% zmodload zsh/mathfunc
+% LPAR()LPAR() isnan+LPAR()0.0 / 0+RPAR() RPAR()RPAR() && print is nan
+is nan
+% typeset -F f=nan && [[ $f == NaN ]] && print is nan
+is nan)
 
 cindex(arithmetic operators)
 cindex(operators, arithmetic)
